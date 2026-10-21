@@ -1,0 +1,20 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function role() { return request.auth.token.role; }
+    function canRead() { return signedIn() && role() in ['admin','entry','viewer']; }
+    function canWrite() { return signedIn() && role() in ['admin','entry']; }
+    function isAdmin() { return signedIn() && role() == 'admin'; }
+
+    match /settings/{d} { allow read: if canRead(); allow write: if isAdmin(); }
+    match /auditLogs/{d} { allow read: if isAdmin(); allow create: if canWrite(); allow update, delete: if false; }
+    match /importJobs/{d} { allow read, write: if isAdmin(); }
+    // Financial records: no hard deletes; archive via update.
+    match /{col}/{d} {
+      allow read: if canRead() && col in ['milkTransactions','milkProduction','cattle','cattleEvents','landTransactions','partnerExpenses','partnerLedger'];
+      allow create, update: if canWrite() && col in ['milkTransactions','milkProduction','cattle','cattleEvents','landTransactions','partnerExpenses','partnerLedger'];
+      allow delete: if false;
+    }
+  }
+}
