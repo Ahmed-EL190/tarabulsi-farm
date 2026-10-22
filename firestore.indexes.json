@@ -1,103 +1,16 @@
 {
   "indexes": [
-    {
-      "collectionGroup": "milkTransactions",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "archived",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "date",
-          "order": "DESCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "landTransactions",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "archived",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "date",
-          "order": "DESCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "partnerLedger",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "archived",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "date",
-          "order": "DESCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "cattle",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "archived",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "date",
-          "order": "DESCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "cattleEvents",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "archived",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "date",
-          "order": "DESCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "partnerExpenses",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "archived",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "date",
-          "order": "DESCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "exchangeRates",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "archived",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "date",
-          "order": "DESCENDING"
-        }
-      ]
-    }
+    { "collectionGroup": "milkTransactions", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "archived", "order": "ASCENDING" }, { "fieldPath": "date", "order": "DESCENDING" }] },
+    { "collectionGroup": "landTransactions", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "archived", "order": "ASCENDING" }, { "fieldPath": "date", "order": "DESCENDING" }] },
+    { "collectionGroup": "partnerLedger", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "archived", "order": "ASCENDING" }, { "fieldPath": "date", "order": "DESCENDING" }] },
+    { "collectionGroup": "cattle", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "archived", "order": "ASCENDING" }, { "fieldPath": "date", "order": "DESCENDING" }] },
+    { "collectionGroup": "cattleEvents", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "archived", "order": "ASCENDING" }, { "fieldPath": "date", "order": "DESCENDING" }] },
+    { "collectionGroup": "partnerExpenses", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "archived", "order": "ASCENDING" }, { "fieldPath": "date", "order": "DESCENDING" }] },
+    { "collectionGroup": "exchangeRates", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "archived", "order": "ASCENDING" }, { "fieldPath": "date", "order": "DESCENDING" }] },
+    { "collectionGroup": "milkTransactions", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "archived", "order": "ASCENDING" }, { "fieldPath": "receiptsSYP", "order": "ASCENDING" }] },
+    { "collectionGroup": "milkTransactions", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "archived", "order": "ASCENDING" }, { "fieldPath": "paymentsSYP", "order": "ASCENDING" }] },
+    { "collectionGroup": "milkTransactions", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "archived", "order": "ASCENDING" }, { "fieldPath": "receiptsUSD", "order": "ASCENDING" }] },
+    { "collectionGroup": "milkTransactions", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "archived", "order": "ASCENDING" }, { "fieldPath": "paymentsUSD", "order": "ASCENDING" }] }
   ],
   "fieldOverrides": []
 }

@@ -1,9 +1,24 @@
-import { collection, query, where, getAggregateFromServer, sum } from 'firebase/firestore'
+import { collection, query, where, getAggregateFromServer, getDocs, sum } from 'firebase/firestore'
 import { db } from '../firebase/config'
 import { COL } from './collections'
-/** Server-side sums over ALL non-archived cashbook rows (no 1000-row limit). */
+
+const FIELDS = ['receiptsSYP', 'paymentsSYP', 'receiptsUSD', 'paymentsUSD']
+const pack = ([rSYP, pSYP, rUSD, pUSD]) => ({ SYP: { receipts: rSYP, payments: pSYP }, USD: { receipts: rUSD, payments: pUSD } })
+
+/**
+ * Sums over ALL non-archived cashbook rows.
+ * 1) Server-side aggregation (needs the (archived, field) indexes to be Enabled).
+ * 2) Fallback if an index is missing/building: read the rows and sum on the client (equality filter only, no index needed).
+ */
 export async function allTimeCash() {
   const q = query(collection(db, COL.milk), where('archived', '==', false))
-  const d = (await getAggregateFromServer(q, { rSYP: sum('receiptsSYP'), pSYP: sum('paymentsSYP'), rUSD: sum('receiptsUSD'), pUSD: sum('paymentsUSD') })).data()
-  return { SYP: { receipts: d.rSYP || 0, payments: d.pSYP || 0 }, USD: { receipts: d.rUSD || 0, payments: d.pUSD || 0 } }
+  try {
+    const one = async (f) => (await getAggregateFromServer(q, { s: sum(f) })).data().s || 0
+    return pack(await Promise.all(FIELDS.map(one)))
+  } catch (e) {
+    if (e?.code !== 'failed-precondition') throw e
+    const t = [0, 0, 0, 0]
+    ;(await getDocs(q)).forEach((d) => { const r = d.data(); FIELDS.forEach((f, i) => { t[i] += Number(r[f]) || 0 }) })
+    return pack(t)
+  }
 }
