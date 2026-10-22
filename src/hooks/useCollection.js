@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react'
-import { watch } from '../services/db'
+import { watch, DEFAULT_MAX } from '../services/db'
 export function useCollection(col, opts) {
   const [rows, setRows] = useState([]); const [loading, setLoading] = useState(true); const [error, setError] = useState(null)
   useEffect(() => {
     setLoading(true)
     return watch(col, (r, e) => { setRows(r); setError(e || null); setLoading(false) }, opts)
   }, [col, opts?.from, opts?.to])
-  return { rows, loading, error }
+  return { rows, loading, error, truncated: rows.length >= (opts?.max || DEFAULT_MAX) }
 }

@@ -1,4 +1,3 @@
-import ExcelJS from 'exceljs'
 
 const val = (c) => { const v = c?.value; if (v && typeof v === 'object' && 'result' in v) return v.result; if (v && typeof v === 'object' && 'richText' in v) return v.richText.map((t) => t.text).join(''); return v ?? null }
 const blank = (v) => v === null || v === undefined || (typeof v === 'string' && v.trim() === '')
@@ -6,6 +5,7 @@ const iso = (d) => (d instanceof Date ? d.toISOString().slice(0, 10) : null)
 const num = (v) => (blank(v) ? null : Number(v))
 
 export async function parseWorkbook(source) {
+  const ExcelJS = (await import('exceljs')).default
   const wb = new ExcelJS.Workbook()
   if (typeof source === 'string') await wb.xlsx.readFile(source); else await wb.xlsx.load(source)
   const sheet = (name) => wb.getWorksheet(name)

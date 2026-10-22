@@ -21,6 +21,12 @@ describe('daily entry mapping', () => {
     expect(() => buildMilkDoc('feed', { date: 'x', amount: '5' })).toThrow()
     expect(() => buildMilkDoc('production', { date: 'x', morningL: '-1' })).toThrow()
   })
+  it('credit sale keeps customer and outstanding; settlement tags the customer', () => {
+    const s = buildMilkDoc('sale', { date: 'd', liters: '10', pricePerL: '100', currency: 'SYP', collected: '400', customer: 'أبو أحمد' })
+    expect(s.customer).toBe('أبو أحمد'); expect(s.outstanding).toBe(600)
+    const r = buildMilkDoc('receipt', { date: 'd', amount: '600', currency: 'SYP', settlesCustomer: 'أبو أحمد' })
+    expect(r.settlesCustomer).toBe('أبو أحمد'); expect(r.receiptsSYP).toBe(600)
+  })
   it('fingerprint identical for identical entries', () => {
     const a = buildMilkDoc('feed', { date: 'd', amount: '5', currency: 'SYP' }); expect(entryFingerprint(a)).toBe(entryFingerprint({ ...a }))
   })

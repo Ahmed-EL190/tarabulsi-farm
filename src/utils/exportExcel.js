@@ -1,6 +1,6 @@
-import ExcelJS from 'exceljs'
 /** columns: [{key,label}], rows: objects. Adds export timestamp + filter note. */
 export async function exportRows({ filename, sheet = 'Data', columns, rows, note }) {
+  const ExcelJS = (await import('exceljs')).default
   const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet(sheet.slice(0, 31), { views: [{ rightToLeft: true }] })
   ws.addRow(columns.map((c) => c.label)).font = { bold: true }
   rows.forEach((r) => ws.addRow(columns.map((c) => { const v = r[c.key]; return v === undefined ? null : v })))

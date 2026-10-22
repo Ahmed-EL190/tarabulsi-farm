@@ -29,3 +29,4 @@ export function Pagination({ page, pages, setPage }) {
 }
 export const fmtNum = (v) => (v === null || v === undefined || v === '' ? '' : new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 }).format(v))
 export const PageHeader = ({ title, children }) => <div className="flex flex-wrap items-center justify-between gap-3 mb-4"><h1 className="text-2xl font-bold">{title}</h1><div className="flex gap-2 flex-wrap">{children}</div></div>
+export const TruncWarn = ({ show }) => show ? <div className="card border-amber-400 bg-amber-50 text-amber-800 text-sm mb-3">تنبيه: عدد السجلات كبير والمعروض هو أحدث 3000 سجل فقط. ضيّق نطاق التاريخ للحصول على أرقام كاملة.</div> : null

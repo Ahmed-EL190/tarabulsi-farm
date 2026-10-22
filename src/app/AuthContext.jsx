@@ -12,8 +12,8 @@ export function AuthProvider({ children }) {
     if (!firebaseConfigured) return
     return onAuthStateChanged(auth, async (u) => {
       setUser(u)
-      // Role comes from a trusted custom claim (set by the admin bootstrap script), never from localStorage.
-      setRole(u ? (await u.getIdTokenResult()).claims.role || 'viewer' : null)
+      // Role = trusted custom claim, force-refreshed. No claim => 'none' (no access), never a silent viewer.
+      setRole(u ? (await u.getIdTokenResult(true)).claims.role || 'none' : null)
       setReady(true)
     })
   }, [])

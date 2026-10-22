@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { Plus, Download, Pencil, Eye, Archive, Printer, Search } from 'lucide-react'
 import { useCollection } from '../hooks/useCollection'
@@ -9,7 +10,7 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'
 import { storage } from '../firebase/config'
 import { exportRows } from '../utils/exportExcel'
 import { Field } from './FormFields'
-import { Modal, Confirm, Empty, Pagination, PageHeader, fmtNum, useToast } from './ui'
+import { Modal, Confirm, Empty, Pagination, PageHeader, TruncWarn, fmtNum, useToast } from './ui'
 
 const PAGE = 25
 /**
@@ -18,9 +19,10 @@ const PAGE = 25
  */
 export default function CrudPage({ cfg }) {
   const lists = useLists(); const { role } = useAuth(); const toast = useToast()
-  const [range, setRange] = useState({ from: '', to: '' })
-  const { rows, loading, error } = useCollection(cfg.collection, range)
-  const [q, setQ] = useState(''); const [flt, setFlt] = useState({}); const [page, setPage] = useState(1)
+  const [sp] = useSearchParams()
+  const [range, setRange] = useState({ from: sp.get('from') || '', to: sp.get('to') || '' })
+  const { rows, loading, error, truncated } = useCollection(cfg.collection, range)
+  const [q, setQ] = useState(''); const [flt, setFlt] = useState(() => Object.fromEntries((cfg.filters || []).map((f) => [f.key, sp.get(f.key) || '']))); const [page, setPage] = useState(1)
   const [sort, setSort] = useState({ key: 'date', dir: 'desc' }); const [edit, setEdit] = useState(null); const [view, setView] = useState(null); const [confirm, setConfirm] = useState(null)
   const writable = can(role, 'write')
 
@@ -68,6 +70,7 @@ export default function CrudPage({ cfg }) {
           <div key={f.key}><label className="label">{f.label}</label><select className="input" value={flt[f.key] || ''} onChange={(e) => { setFlt({ ...flt, [f.key]: e.target.value }); setPage(1) }}><option value="">الكل</option>{(f.listKey ? lists[f.listKey].items : f.options).map((o) => <option key={o}>{o}</option>)}</select></div>
         ))}
       </div>
+      <TruncWarn show={truncated} />
       {error && <div className="card text-red-600 text-sm mb-3">تعذر التحميل: {String(error.message || error)}</div>}
       <div className="card p-0 overflow-x-auto">
         <table className="w-full text-sm">

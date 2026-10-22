@@ -20,7 +20,7 @@ export const ENTRY_KINDS = {
 export function buildMilkDoc(kind, v) {
   const k = ENTRY_KINDS[kind]; if (!k) throw new Error('نوع إدخال غير معروف')
   const doc = { date: v.date, type: k.type, category: v.category || k.category, description: v.description || '', morningL: null, eveningL: null, liters: null, pricePerL: null,
-    method: v.method || null, notes: v.notes || '', fundingSource: v.fundingSource || null, partnerAmount: null, partnerCurrency: null,
+    customer: v.customer || null, settlesCustomer: v.settlesCustomer || null, method: v.method || null, notes: v.notes || '', fundingSource: v.fundingSource || null, partnerAmount: null, partnerCurrency: null,
     receiptsSYP: null, paymentsSYP: null, receiptsUSD: null, paymentsUSD: null, entryKind: kind }
   if (kind === 'production') {
     doc.morningL = num(v.morningL); doc.eveningL = num(v.eveningL)

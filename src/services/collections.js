@@ -1,1 +1,1 @@
-export const COL = { milk: 'milkTransactions', production: 'milkProduction', cattle: 'cattle', cattleEvents: 'cattleEvents', land: 'landTransactions', partnerExpenses: 'partnerExpenses', ledger: 'partnerLedger', settings: 'settings', audit: 'auditLogs', imports: 'importJobs' }
+export const COL = { milk: 'milkTransactions', production: 'milkProduction', cattle: 'cattle', cattleEvents: 'cattleEvents', land: 'landTransactions', partnerExpenses: 'partnerExpenses', ledger: 'partnerLedger', settings: 'settings', audit: 'auditLogs', imports: 'importJobs', rates: 'exchangeRates' }

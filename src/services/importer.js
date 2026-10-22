@@ -39,3 +39,26 @@ export async function verifyImport(jobId, expected) {
     landUSD: expected.land.USD, landSYP: expected.land.SYP, cattlePurchaseSYP: expected.cattle.purchaseSYP, ledgerOpening: expected.ledgerOpening }
   return Object.keys(want).map((k) => ({ check: k, expected: want[k], actual: got[k], ok: Math.abs(want[k] - got[k]) < 0.001 }))
 }
+
+const SHEET_COL = { milk: COL.milk, land: COL.land, cattle: COL.cattle, events: COL.cattleEvents, partnerExpenses: COL.partnerExpenses, ledger: COL.ledger }
+/** Restores documents from backup .xlsx files exported by this app (sheet name = key, column "id" = document id). */
+export async function restoreBackup(files, onProgress) {
+  const ExcelJS = (await import('exceljs')).default; const out = []; let done = 0
+  for (const file of files) {
+    const wb = new ExcelJS.Workbook(); await wb.xlsx.load(await file.arrayBuffer())
+    for (const ws of wb.worksheets) {
+      const colName = SHEET_COL[ws.name]; if (!colName) continue
+      const head = ws.getRow(1).values.slice(1); const docs = []
+      ws.eachRow((row, r) => { if (r === 1) return
+        const o = {}; head.forEach((h, i) => { let v = row.getCell(i + 1).value; if (v && typeof v === 'object' && 'result' in v) v = v.result; if (v instanceof Date) v = v.toISOString().slice(0, 10); o[h] = v === undefined || v === '' ? null : v })
+        const id = o.id; delete o.id; if (id) docs.push({ id: String(id), data: o }) })
+      for (let i = 0; i < docs.length; i += 400) {
+        const b = writeBatch(db); docs.slice(i, i + 400).forEach((d) => b.set(doc(db, colName, d.id), { ...d.data, archived: d.data.archived === true, updatedAt: serverTimestamp(), restoredBy: auth.currentUser?.uid || null }))
+        await b.commit(); done += Math.min(400, docs.length - i); onProgress?.(done)
+      }
+      out.push({ sheet: ws.name, collection: colName, count: docs.length })
+    }
+  }
+  await audit('import', COL.imports, 'restore', null, out)
+  return out
+}

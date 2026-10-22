@@ -6,14 +6,18 @@ service cloud.firestore {
     function canRead() { return signedIn() && role() in ['admin','entry','viewer']; }
     function canWrite() { return signedIn() && role() in ['admin','entry']; }
     function isAdmin() { return signedIn() && role() == 'admin'; }
+    function newDocOk() { return request.resource.data.archived == false && request.resource.data.createdBy == request.auth.uid; }
+    function sameOwner() { return request.resource.data.createdBy == resource.data.createdBy; }
 
     match /settings/{d} { allow read: if canRead(); allow write: if isAdmin(); }
-    match /auditLogs/{d} { allow read: if isAdmin(); allow create: if canWrite(); allow update, delete: if false; }
+    match /exchangeRates/{d} { allow read: if canRead(); allow create: if isAdmin() && request.resource.data.rate > 0; allow update: if isAdmin() && sameOwner(); allow delete: if false; }
+    match /auditLogs/{d} { allow read: if isAdmin(); allow create: if canWrite() && request.resource.data.by == request.auth.uid; allow update, delete: if false; }
     match /importJobs/{d} { allow read, write: if isAdmin(); }
-    // Financial records: no hard deletes; archive via update.
+    // Financial records: never hard-deleted (archive via update); owner/creator is immutable.
     match /{col}/{d} {
       allow read: if canRead() && col in ['milkTransactions','milkProduction','cattle','cattleEvents','landTransactions','partnerExpenses','partnerLedger'];
-      allow create, update: if canWrite() && col in ['milkTransactions','milkProduction','cattle','cattleEvents','landTransactions','partnerExpenses','partnerLedger'];
+      allow create: if canWrite() && col in ['milkTransactions','milkProduction','cattle','cattleEvents','landTransactions','partnerExpenses','partnerLedger'] && (isAdmin() || newDocOk());
+      allow update: if canWrite() && col in ['milkTransactions','milkProduction','cattle','cattleEvents','landTransactions','partnerExpenses','partnerLedger'] && sameOwner();
       allow delete: if false;
     }
   }

@@ -27,11 +27,12 @@ export async function listRange(col, { from, to, max = 1000 } = {}) {
   const snap = await getDocs(query(collection(db, col), ...c, orderBy('date', 'desc'), limit(max)))
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }))
 }
+export const DEFAULT_MAX = 3000
 export function watch(col, cb, opts = {}) {
   const c = [where('archived', '==', false)]
   if (opts.from) c.push(where('date', '>=', opts.from))
   if (opts.to) c.push(where('date', '<=', opts.to))
-  return onSnapshot(query(collection(db, col), ...c, orderBy('date', 'desc'), limit(opts.max || 1000)),
+  return onSnapshot(query(collection(db, col), ...c, orderBy('date', 'desc'), limit(opts.max || DEFAULT_MAX)),
     (s) => cb(s.docs.map((d) => ({ id: d.id, ...d.data() }))), (e) => cb([], e))
 }
 export { writeBatch, db }
