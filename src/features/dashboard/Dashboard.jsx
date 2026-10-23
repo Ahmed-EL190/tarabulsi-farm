@@ -10,6 +10,8 @@ import { COL } from '../../services/db'
 import { allTimeCash } from '../../services/aggregates'
 import { cashSummary, expensesByCategory, milkProduction, ledgerBalances, landCostReport } from '../../utils/finance'
 import { TruncWarn } from '../../components/ui'
+import { advanceBalances } from '../../utils/advances'
+import { payrollTotals } from '../../utils/payroll'
 
 const fmt = (v) => new Intl.NumberFormat('en-US', { maximumFractionDigits: 1 }).format(v || 0)
 const COLORS = ['#2563eb', '#16a34a', '#f59e0b', '#ef4444', '#8b5cf6', '#0ea5e9']
@@ -36,7 +38,7 @@ export default function Dashboard() {
   const prevRange = useMemo(() => { const len = differenceInCalendarDays(parseISO(to), parseISO(from)) + 1; const pt = subDays(parseISO(from), 1); return { from: iso(subDays(pt, len - 1)), to: iso(pt) } }, [from, to])
   const { rows: txAll, loading, error, truncated } = useCollection(COL.milk, range)
   const { rows: prevAll } = useCollection(COL.milk, compare ? prevRange : { from: '2999-01-01', to: '2999-01-01' })
-  const { rows: cattle } = useCollection(COL.cattle); const { rows: ledger } = useCollection(COL.ledger); const { rows: land } = useCollection(COL.land)
+  const { rows: cattle } = useCollection(COL.cattle); const { rows: ledger } = useCollection(COL.ledger); const { rows: land } = useCollection(COL.land); const { rows: advRows } = useCollection(COL.advances); const { rows: payRows } = useCollection(COL.payroll)
   const [balance, setBalance] = useState(null); const [balErr, setBalErr] = useState('')
   useEffect(() => { allTimeCash().then(setBalance).catch((e) => setBalErr(String(e.message || e))) }, [txAll.length])
 
@@ -64,6 +66,8 @@ export default function Dashboard() {
   const landRep = useMemo(() => landCostReport(land, [...new Set(land.map((r) => r.category))], lists.partners.items), [land, lists])
   const landChart = landRep.rows.map((r) => ({ name: r.category, value: r.total[cur] })).filter((x) => x.value > 0)
   const landTotals = landRep.total; const cattlePurchase = cattle.reduce((a, c) => { if (a[c.currency] !== undefined) a[c.currency] += Number(c.purchasePrice) || 0; return a }, { USD: 0, SYP: 0 })
+  const advOwed = advanceBalances(advRows).filter((b) => b.currency === cur).reduce((s, b) => s + b.balance, 0)
+  const payDue = payrollTotals(payRows)[cur]?.remaining || 0
   const q = `from=${from}&to=${to}`
   const fullBal = balance ? { SYP: (settings.openingCash.SYP || 0) + balance.SYP.receipts - balance.SYP.payments, USD: (settings.openingCash.USD || 0) + balance.USD.receipts - balance.USD.payments } : null
 
@@ -100,11 +104,13 @@ export default function Dashboard() {
         <div className="card"><div className="text-xs text-slate-500">مصروفات الفترة ({cur})</div><div className="text-2xl font-bold">{fmt(pie.reduce((s, x) => s + x.value, 0))}</div>{compare && <Delta cur={pie.reduce((s, x) => s + x.value, 0)} prev={prev ? Object.values(expensesByCategory(prev)).reduce((s, v) => s + v[cur], 0) : null} />}</div>
       </div>
 
-      <div className="grid grid-cols-2 xl:grid-cols-5 gap-4 text-sm">
+      <div className="grid grid-cols-2 xl:grid-cols-4 2xl:grid-cols-7 gap-4 text-sm">
         <Link to={`/expenses?category=علف&${q}`} className="card hover:ring-2 ring-brand-500">علف ({cur})<div className="text-lg font-bold">{fmt(cats['علف']?.[cur])}</div></Link>
         <Link to={`/expenses?category=${encodeURIComponent('دواء وعلاج')}&${q}`} className="card hover:ring-2 ring-brand-500">دواء وعلاج ({cur})<div className="text-lg font-bold">{fmt(cats['دواء وعلاج']?.[cur])}</div></Link>
         <Link to="/partners" className="card hover:ring-2 ring-brand-500">مموَّل من الشركاء ({cur})<div className="text-lg font-bold">{fmt(partnerFunded[cur])}</div></Link>
         <Link to="/land" className="card hover:ring-2 ring-brand-500">استثمار الأرض ({cur})<div className="text-lg font-bold">{fmt(landTotals[cur])}</div></Link>
+        <Link to="/advances" className="card hover:ring-2 ring-brand-500">سلف مستحقة ({cur})<div className="text-lg font-bold">{fmt(advOwed)}</div></Link>
+        <Link to="/payroll" className="card hover:ring-2 ring-brand-500">مرتبات غير مدفوعة ({cur})<div className="text-lg font-bold">{fmt(payDue)}</div></Link>
         <Link to="/cattle" className="card hover:ring-2 ring-brand-500">شراء القطيع ({cur})<div className="text-lg font-bold">{fmt(cattlePurchase[cur])}</div></Link>
       </div>
 

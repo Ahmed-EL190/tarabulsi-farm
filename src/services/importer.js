@@ -40,7 +40,7 @@ export async function verifyImport(jobId, expected) {
   return Object.keys(want).map((k) => ({ check: k, expected: want[k], actual: got[k], ok: Math.abs(want[k] - got[k]) < 0.001 }))
 }
 
-const SHEET_COL = { milk: COL.milk, land: COL.land, cattle: COL.cattle, events: COL.cattleEvents, partnerExpenses: COL.partnerExpenses, ledger: COL.ledger }
+const SHEET_COL = { milk: COL.milk, land: COL.land, cattle: COL.cattle, events: COL.cattleEvents, partnerExpenses: COL.partnerExpenses, ledger: COL.ledger, advances: COL.advances, workers: COL.workers, payroll: COL.payroll }
 /** Restores documents from backup .xlsx files exported by this app (sheet name = key, column "id" = document id). */
 export async function restoreBackup(files, onProgress) {
   const ExcelJS = (await import('exceljs')).default; const out = []; let done = 0

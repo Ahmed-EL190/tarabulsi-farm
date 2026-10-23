@@ -53,7 +53,7 @@ export default function CrudPage({ cfg }) {
     } catch (e) { toast.show(e.message || 'فشل الحفظ', 'err') }
   })
   const doArchive = async () => { try { await archive(cfg.collection, confirm.id, confirm); toast.show('تمت الأرشفة') } catch (e) { toast.show(e.message, 'err') } setConfirm(null) }
-  const optsFor = (f) => (f.listKey ? lists[f.listKey].active : f.options)
+  const optsFor = (f) => { const base = f.listKey ? lists[f.listKey].active : f.options; const cur = edit?.[f.name]; return cur && base && !base.includes(cur) ? [...base, cur] : base }
 
   return (
     <div>

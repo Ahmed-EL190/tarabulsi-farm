@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { collection, doc, serverTimestamp } from 'firebase/firestore'
-import { Droplets, Banknote, ShoppingCart, Wheat, Pill, Users, Wrench, UserCheck, Layers, PiggyBank, Landmark, Undo2, HandCoins, FileText } from 'lucide-react'
+import { Briefcase, Coins, Droplets, Banknote, ShoppingCart, Wheat, Pill, Users, Wrench, UserCheck, Layers, PiggyBank, Landmark, Undo2, HandCoins, FileText } from 'lucide-react'
 import { useCollection } from '../../hooks/useCollection'
 import { useLists } from '../../hooks/useLists'
 import { useAuth, can } from '../../app/AuthContext'
@@ -15,14 +15,16 @@ import { Confirm, PageHeader, fmtNum, useToast } from '../../components/ui'
 import CrudPage from '../../components/CrudPage'
 import { landCfg } from '../land/configs'
 import Ledger from '../partners/Ledger'
+import Advances from '../advances/Advances'
+import Payroll from '../payroll/Payroll'
 
 const TILES = [['production', Droplets], ['sale', ShoppingCart], ['receipt', Banknote], ['payment', HandCoins], ['feed', Wheat], ['medicine', Pill], ['wages', Users], ['utilities', Wrench],
-  ['partnerExpense', UserCheck], ['other', Layers], ['newAnimal', PiggyBank], ['cattle', PiggyBank], ['cattleEvent', FileText], ['land', Landmark], ['repayment', Undo2]]
-const LABEL = { ...Object.fromEntries(Object.entries(ENTRY_KINDS).map(([k, v]) => [k, v.label])), newAnimal: 'شراء حيوان جديد', cattle: 'بيع / علاج حيوان', cattleEvent: 'ولادة / نفوق / تغيير حالة', land: 'الأرض والاستثمار', repayment: 'سداد مستحقات شريك' }
+  ['partnerExpense', UserCheck], ['other', Layers], ['newAnimal', PiggyBank], ['cattle', PiggyBank], ['cattleEvent', FileText], ['land', Landmark], ['repayment', Undo2], ['advance', Coins], ['payroll', Briefcase]]
+const LABEL = { ...Object.fromEntries(Object.entries(ENTRY_KINDS).map(([k, v]) => [k, v.label])), newAnimal: 'شراء حيوان جديد', cattle: 'بيع / علاج حيوان', cattleEvent: 'ولادة / نفوق / تغيير حالة', land: 'الأرض والاستثمار', repayment: 'سداد مستحقات شريك', advance: 'سلفة / سداد سلفة', payroll: 'مرتبات العمال (كشف وصرف)', wages: 'أجور متفرقة (يومية/مؤقتة)' }
 const today = () => new Date().toLocaleDateString('en-CA')
 
 function MilkForm({ kind, date, existing, onSaved, toast }) {
-  const lists = useLists(); const form = useForm({ defaultValues: { currency: 'SYP' } }); const v = form.watch(); const [dup, setDup] = useState(null); const [busy, setBusy] = useState(false)
+  const lists = useLists(); const { rows: regWorkers } = useCollection(COL.workers); const form = useForm({ defaultValues: { currency: 'SYP' } }); const v = form.watch(); const [dup, setDup] = useState(null); const [busy, setBusy] = useState(false)
   const key = `draft:${kind}:${date}`; const [hasDraft, setHasDraft] = useState(false)
   useEffect(() => { try { const d = localStorage.getItem(key); if (d) { form.reset(JSON.parse(d)); setHasDraft(true) } else setHasDraft(false) } catch {} }, [key])
   useEffect(() => { const sub = form.watch((val) => { try { localStorage.setItem(key, JSON.stringify(val)) } catch {} }); return () => sub.unsubscribe() }, [key])
@@ -55,6 +57,10 @@ function MilkForm({ kind, date, existing, onSaved, toast }) {
         {F({ name: 'customer', label: 'العميل/المشتري', type: 'text' })}{F({ name: 'description', label: 'بيان', type: 'text' })}</>}
       {needsAmount && <>{F({ name: 'amount', label: 'المبلغ', type: 'number', required: true })}{F({ name: 'currency', label: 'العملة', type: 'select' }, lists.currencies.active)}
         {F({ name: 'category', label: 'التصنيف', type: 'select' }, lists.expenseCategories.active)}{F({ name: 'description', label: 'البيان', type: 'text' })}</>}
+      {kind === 'wages' && <>
+        <div><label className="label">اسم العامل (اختياري)</label><input className="input" list="wage-workers" {...form.register('workerName')} /><datalist id="wage-workers">{regWorkers.map((w) => <option key={w.id} value={w.name} />)}</datalist></div>
+        {regWorkers.some((w) => w.name === (v.workerName || '').trim()) && <p className="md:col-span-2 text-xs rounded-lg bg-amber-50 text-amber-800 p-2">هذا العامل مسجَّل في «العمال والمرتبات». لا تدخل مرتبه الشهري هنا حتى لا يُحسب مرتين، بل استخدم زر «مرتبات العمال». هذه الشاشة للأجور المتفرقة فقط.</p>}
+        <p className="md:col-span-2 text-xs text-slate-500">للمرتبات الشهرية والسلف والخصومات استخدم «مرتبات العمال» و«سلفة / سداد سلفة».</p></>}
       {kind === 'receipt' && F({ name: 'settlesCustomer', label: 'تسديد دين آجل للعميل (اختياري)', type: 'text', hint: 'اكتب اسم العميل نفسه ليُخصم من المتبقي عليه' })}
       {kind === 'partnerExpense' && F({ name: 'fundingSource', label: 'الشريك الذي دفع', type: 'select', required: true }, lists.partners.active)}
       {kind !== 'production' && F({ name: 'method', label: 'طريقة الدفع/القبض', type: 'select' }, lists.paymentMethods.active)}
@@ -110,13 +116,13 @@ export default function DailyEntry() {
   return (
     <div className="space-y-4">
       <PageHeader title="إضافة إدخال يومي"><div><label className="label">التاريخ</label><input type="date" className="input" value={date} onChange={(e) => setDate(e.target.value)} /></div></PageHeader>
-      <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-8 gap-3">{TILES.map(([k, Icon]) => (
+      <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-9 gap-3">{TILES.map(([k, Icon]) => (
         <button key={k} onClick={() => setKind(k)} className={`card flex flex-col items-center gap-2 py-4 text-sm ${kind === k ? 'ring-2 ring-brand-500 bg-brand-50' : ''}`}><Icon size={22} className="text-brand-600" />{LABEL[k]}</button>))}</div>
       <h2 className="font-bold">{LABEL[kind]}</h2>
       {kind in ENTRY_KINDS ? <MilkForm key={kind} kind={kind} date={date} existing={rows} onSaved={() => {}} toast={toast} />
         : kind === 'newAnimal' ? <NewAnimal key={kind} date={date} toast={toast} />
         : kind === 'cattle' || kind === 'cattleEvent' ? <CattleQuick key={kind} kind={kind} date={date} toast={toast} />
-        : kind === 'land' ? <CrudPage cfg={landCfg} /> : <Ledger />}
+        : kind === 'land' ? <CrudPage cfg={landCfg} /> : kind === 'advance' ? <Advances /> : kind === 'payroll' ? <Payroll /> : <Ledger />}
       <div className="card"><h3 className="font-bold mb-2">ملخص يوم {date}</h3>
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3 text-sm"><div>إنتاج: <b>{fmtNum(prod.total)}</b> لتر ({fmtNum(prod.morning)} ص / {fmtNum(prod.evening)} م)</div>
           <div>مقبوضات ل.س: <b>{fmtNum(cash.SYP.receipts)}</b></div><div>مدفوعات ل.س: <b>{fmtNum(cash.SYP.payments)}</b></div><div>مقبوضات USD: <b>{fmtNum(cash.USD.receipts)}</b></div><div>مدفوعات USD: <b>{fmtNum(cash.USD.payments)}</b></div></div>

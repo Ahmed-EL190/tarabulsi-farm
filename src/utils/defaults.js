@@ -12,15 +12,16 @@ export const DEFAULT_LISTS = {
   animalCategories: ['بقرة', 'عجل', 'عجلة', 'ثور', 'عجل تلقيح'],
   milkStatuses: ['تحلب', 'جافة', 'متوقفة'],
   txTypes: ['حليب أولي', 'مبيعات حليب', 'مقبوضات أخرى', 'مدفوعات', 'مصروف حظيرة'],
-  expenseCategories: ['حليب', 'علف', 'دواء وعلاج', 'أجور', 'نقل', 'صيانة', 'ماء وكهرباء', 'شراء حيوان', 'مختلط / يحتاج تفصيل', 'أخرى'],
+  expenseCategories: ['حليب', 'علف', 'دواء وعلاج', 'أجور', 'سلف', 'نقل', 'صيانة', 'ماء وكهرباء', 'شراء حيوان', 'مختلط / يحتاج تفصيل', 'أخرى'],
   feedUnits: ['كغ', 'طن', 'كيس', 'بالّة', 'لتر'],
   paymentMethods: ['نقدي', 'تحويل', 'شيك'],
   fundingSources: ['أبو وليد', 'أبو غفير', 'صندوق الحليب', 'مصدر آخر'],
   ledgerTypes: ['رصيد افتتاحي', 'سداد', 'تعديل معتمد'],
+  workers: [],
   eventTypes: ['شراء', 'بيع', 'ولادة', 'نفوق', 'علاج', 'تلقيح', 'تغيير حالة', 'أخرى'],
 }
 export const LIST_LABELS = {
   partners: 'الشركاء', stages: 'المراحل', costTypes: 'أنواع التكلفة', landCategories: 'تصنيفات الأرض', subcategories: 'التصنيفات الفرعية', statuses: 'حالات السجل',
   detailLevels: 'مستوى السجل', currencies: 'العملات', animalStatuses: 'حالات الحيوان', animalCategories: 'فئات الحيوان', milkStatuses: 'حالات الحليب', txTypes: 'أنواع الحركة',
-  expenseCategories: 'تصنيفات الصندوق والمصروف', feedUnits: 'وحدات العلف', paymentMethods: 'طرق الدفع', fundingSources: 'مصادر التمويل', ledgerTypes: 'أنواع حركة المستحقات', eventTypes: 'أحداث الحيوان',
+  expenseCategories: 'تصنيفات الصندوق والمصروف', feedUnits: 'وحدات العلف', paymentMethods: 'طرق الدفع', fundingSources: 'مصادر التمويل', ledgerTypes: 'أنواع حركة المستحقات', eventTypes: 'أحداث الحيوان', workers: 'أسماء العمال (للسلف)',
 }

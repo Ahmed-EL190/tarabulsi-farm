@@ -15,9 +15,9 @@ service cloud.firestore {
     match /importJobs/{d} { allow read, write: if isAdmin(); }
     // Financial records: never hard-deleted (archive via update); owner/creator is immutable.
     match /{col}/{d} {
-      allow read: if canRead() && col in ['milkTransactions','milkProduction','cattle','cattleEvents','landTransactions','partnerExpenses','partnerLedger'];
-      allow create: if canWrite() && col in ['milkTransactions','milkProduction','cattle','cattleEvents','landTransactions','partnerExpenses','partnerLedger'] && (isAdmin() || newDocOk());
-      allow update: if canWrite() && col in ['milkTransactions','milkProduction','cattle','cattleEvents','landTransactions','partnerExpenses','partnerLedger'] && sameOwner();
+      allow read: if canRead() && col in ['milkTransactions','milkProduction','cattle','cattleEvents','landTransactions','partnerExpenses','partnerLedger','advances','workers','payroll'];
+      allow create: if canWrite() && col in ['milkTransactions','milkProduction','cattle','cattleEvents','landTransactions','partnerExpenses','partnerLedger','advances','workers','payroll'] && (isAdmin() || newDocOk());
+      allow update: if canWrite() && col in ['milkTransactions','milkProduction','cattle','cattleEvents','landTransactions','partnerExpenses','partnerLedger','advances','workers','payroll'] && sameOwner();
       allow delete: if false;
     }
   }

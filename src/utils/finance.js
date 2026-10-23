@@ -25,6 +25,7 @@ export function expensesByCategory(rows) {
   const out = {}
   const add = (cat, cur, v) => { if (!v) return; out[cat] ??= { SYP: 0, USD: 0 }; out[cat][cur] += v }
   for (const r of rows) {
+    if (r.isAdvance) continue // سلف العمال/الشركاء ليست مصروفاً بل ذمة قابلة للسداد
     const cat = r.category || 'غير مصنف'
     add(cat, 'SYP', n(r.paymentsSYP)); add(cat, 'USD', n(r.paymentsUSD))
     if (has(r.partnerAmount) && CURRENCIES.includes(r.partnerCurrency)) add(cat, r.partnerCurrency, n(r.partnerAmount))

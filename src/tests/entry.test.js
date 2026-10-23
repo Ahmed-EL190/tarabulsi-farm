@@ -27,6 +27,10 @@ describe('daily entry mapping', () => {
     const r = buildMilkDoc('receipt', { date: 'd', amount: '600', currency: 'SYP', settlesCustomer: 'أبو أحمد' })
     expect(r.settlesCustomer).toBe('أبو أحمد'); expect(r.receiptsSYP).toBe(600)
   })
+  it('wages entry keeps the worker name and builds a description', () => {
+    const d = buildMilkDoc('wages', { date: 'd', amount: '50000', currency: 'SYP', workerName: 'محمود' })
+    expect(d.workerName).toBe('محمود'); expect(d.description).toBe('أجر محمود'); expect(d.paymentsSYP).toBe(50000)
+  })
   it('fingerprint identical for identical entries', () => {
     const a = buildMilkDoc('feed', { date: 'd', amount: '5', currency: 'SYP' }); expect(entryFingerprint(a)).toBe(entryFingerprint({ ...a }))
   })

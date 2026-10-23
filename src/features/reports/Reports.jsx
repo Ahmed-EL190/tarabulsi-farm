@@ -7,6 +7,8 @@ import { COL } from '../../services/db'
 import { cashSummary, expensesByCategory, ledgerBalances, landCostReport, totalLiters } from '../../utils/finance'
 import { exportRows } from '../../utils/exportExcel'
 import { Empty, PageHeader, fmtNum } from '../../components/ui'
+import { advanceBalances } from '../../utils/advances'
+import { remaining } from '../../utils/payroll'
 
 const group = (rows, keyFn, init, add) => { const m = {}; rows.forEach((r) => { const k = keyFn(r); if (k == null) return; m[k] ??= init(); add(m[k], r) }); return Object.entries(m).sort(([a], [b]) => a.localeCompare(b)).map(([k, v]) => ({ key: k, ...v })) }
 const n = (v) => Number(v) || 0
@@ -16,6 +18,8 @@ export default function Reports() {
   const range = useMemo(() => ({ from, to }), [from, to]); const lists = useLists()
   const { rows: tx } = useCollection(COL.milk, range); const { rows: cattle } = useCollection(COL.cattle); const { rows: land } = useCollection(COL.land)
   const { rows: allTx } = useCollection(COL.milk)
+  const { rows: advRows } = useCollection(COL.advances)
+  const { rows: payRows } = useCollection(COL.payroll)
   const { rows: ledger } = useCollection(COL.ledger); const { rows: pexp } = useCollection(COL.partnerExpenses); const { rows: events } = useCollection(COL.cattleEvents)
 
   const REPORTS = useMemo(() => ({
@@ -26,7 +30,7 @@ export default function Reports() {
     sales: { title: 'المبيعات والتحصيل', cols: [['date', 'التاريخ'], ['liters', 'لتر'], ['pricePerL', 'السعر'], ['receiptsSYP', 'محصَّل ل.س'], ['receiptsUSD', 'محصَّل USD'], ['outstanding', 'آجل/متبقي'], ['description', 'البيان']], rows: () => tx.filter((r) => r.type === 'مبيعات حليب') },
     expenses: { title: 'المصروفات حسب التصنيف', cols: [['category', 'التصنيف'], ['SYP', 'ل.س'], ['USD', 'USD']], rows: () => Object.entries(expensesByCategory(tx)).map(([category, v]) => ({ category, ...v })) },
     byFunding: { title: 'المصروفات حسب مصدر التمويل', cols: [['source', 'المصدر'], ['SYP', 'ل.س'], ['USD', 'USD']],
-      rows: () => group(tx.filter((r) => ['مصروف حظيرة', 'مدفوعات'].includes(r.type) || r.partnerAmount != null), (r) => r.fundingSource || 'صندوق المزرعة', () => ({ SYP: 0, USD: 0 }), (a, r) => { a.SYP += n(r.paymentsSYP) + (r.partnerCurrency === 'SYP' ? n(r.partnerAmount) : 0); a.USD += n(r.paymentsUSD) + (r.partnerCurrency === 'USD' ? n(r.partnerAmount) : 0) }).map((x) => ({ source: x.key, ...x })) },
+      rows: () => group(tx.filter((r) => !r.isAdvance && (['مصروف حظيرة', 'مدفوعات'].includes(r.type) || r.partnerAmount != null)), (r) => r.fundingSource || 'صندوق المزرعة', () => ({ SYP: 0, USD: 0 }), (a, r) => { a.SYP += n(r.paymentsSYP) + (r.partnerCurrency === 'SYP' ? n(r.partnerAmount) : 0); a.USD += n(r.paymentsUSD) + (r.partnerCurrency === 'USD' ? n(r.partnerAmount) : 0) }).map((x) => ({ source: x.key, ...x })) },
     cash: { title: 'حركة النقد والرصيد حسب العملة', cols: [['cur', 'العملة'], ['receipts', 'مقبوضات'], ['payments', 'مدفوعات'], ['net', 'الصافي']], rows: () => Object.entries(cashSummary(tx)).map(([cur, v]) => ({ cur, ...v })) },
     cattle: { title: 'جرد القطيع وحالاته', cols: [['category', 'الفئة'], ['status', 'الحالة'], ['count', 'العدد']],
       rows: () => group(cattle, (r) => `${r.category}|${r.status}`, () => ({ count: 0 }), (a) => { a.count++ }).map((x) => ({ category: x.key.split('|')[0], status: x.key.split('|')[1], count: x.count })) },
@@ -38,6 +42,9 @@ export default function Reports() {
       rows: () => group(land.filter((r) => r.category === 'مصاريف تجهيز الأرض'), (r) => r.subcategory || '—', () => ({ USD: 0, SYP: 0 }), (a, r) => { a[r.currency] += n(r.amount) }).map((x) => ({ subcategory: x.key, USD: x.USD, SYP: x.SYP })) },
     partnerExp: { title: 'مصاريف الشركاء', cols: [['partner', 'الشريك'], ['type', 'البيان'], ['amount', 'المبلغ'], ['currency', 'العملة'], ['reimbursement', 'السداد']], rows: () => pexp },
     ledger: { title: 'كشف مستحقات الشركاء وسجل السداد', cols: [['date', 'التاريخ'], ['partner', 'الشريك'], ['type', 'النوع'], ['additionSYP', 'إضافة'], ['repaymentSYP', 'سداد'], ['balance', 'الرصيد']], rows: () => ledgerBalances(ledger) },
+    payroll: { title: 'كشوف مرتبات العمال (حسب الفترة)', cols: [['period', 'الشهر'], ['worker', 'العامل'], ['currency', 'العملة'], ['base', 'الأساسي'], ['bonus', 'مكافآت'], ['otherDeduction', 'خصومات'], ['advanceDeduction', 'خصم سلف'], ['net', 'الصافي'], ['paid', 'المدفوع'], ['remaining', 'المتبقي'], ['status', 'الحالة']],
+      rows: () => payRows.filter((p) => p.period >= from.slice(0, 7) && p.period <= to.slice(0, 7)).sort((a, b) => a.period.localeCompare(b.period) || a.worker.localeCompare(b.worker)).map((p) => ({ ...p, remaining: remaining(p) })) },
+    advances: { title: 'سلف العمال والشركاء (الأرصدة لكل عملة)', cols: [['personType', 'النوع'], ['person', 'الاسم'], ['currency', 'العملة'], ['advanced', 'إجمالي السلف'], ['repaid', 'المسدَّد/المخصوم'], ['balance', 'المتبقي']], rows: () => advanceBalances(advRows) },
     receivables: { title: 'الديون الآجلة على العملاء (لكل عملة)', cols: [['customer', 'العميل'], ['currency', 'العملة'], ['sales', 'مبيعات آجلة (متبقي عند البيع)'], ['settled', 'مسدَّد لاحقاً'], ['due', 'المتبقي']],
       rows: () => { const m = {}; const g = (c, cur) => (m[`${c}|${cur}`] ??= { customer: c, currency: cur, sales: 0, settled: 0 })
         allTx.forEach((r) => { if (r.type === 'مبيعات حليب' && r.outstanding > 0) g(r.customer || 'غير محدد', r.saleCurrency || 'SYP').sales += n(r.outstanding)
@@ -52,7 +59,7 @@ export default function Reports() {
         ...cattle.filter((r) => r.motherId && !cattle.some((m) => m.animalId === r.motherId)).map((r) => ({ where: 'الأبقار', ref: r.animalId, issue: `الأم ${r.motherId} غير موجودة` })),
         ...pexp.filter((p) => !p.milkRef).map((p) => ({ where: 'مصاريف الشركاء', ref: `${p.partner} ${p.type}`, issue: 'غير مرتبط بسجل صندوق — راجع تكرار الاحتساب' })),
       ] },
-  }), [tx, cattle, land, ledger, pexp, events])
+  }), [tx, cattle, land, ledger, pexp, events, payRows, advRows, allTx])
   const rep = REPORTS[rid]; const data = rep.rows(); const cols = rep.cols.map(([key, label]) => ({ key, label }))
   const numKeys = data.length > 1 ? cols.filter((c) => typeof data[0][c.key] === 'number' && c.key !== 'balance').slice(0, 2) : []
   const labelKey = cols[0].key

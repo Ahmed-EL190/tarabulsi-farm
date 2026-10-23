@@ -12,6 +12,8 @@ const DailyEntry = lazy(() => import('../features/daily-entry/DailyEntry'))
 const LandCost = lazy(() => import('../features/land/LandCost'))
 const Cattle = lazy(() => import('../features/cattle/Cattle'))
 const CattleProfile = lazy(() => import('../features/cattle/CattleProfile'))
+const Payroll = lazy(() => import('../features/payroll/Payroll'))
+const Advances = lazy(() => import('../features/advances/Advances'))
 const Partners = lazy(() => import('../features/partners/Partners'))
 const Reports = lazy(() => import('../features/reports/Reports'))
 const Settings = lazy(() => import('../features/settings/Settings'))
@@ -40,6 +42,8 @@ export default function App() {
           <Route path="cattle" element={<Cattle />} />
           <Route path="cattle/:id" element={<CattleProfile />} />
           <Route path="land" element={<Land />} />
+          <Route path="payroll" element={<Payroll />} />
+          <Route path="advances" element={<Advances />} />
           <Route path="partners" element={<Partners />} />
           <Route path="reports" element={<Reports />} />
           <Route path="import" element={<Guard need="admin"><ImportWizard /></Guard>} />

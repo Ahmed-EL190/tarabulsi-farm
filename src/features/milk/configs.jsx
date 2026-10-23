@@ -34,7 +34,7 @@ export const productionCfg = { ...cashbookCfg, title: 'إنتاج الحليب �
 const EXP_STATUS = ['مدفوع', 'مستحق']
 export const expensesCfg = {
   title: 'إدارة المصروفات', collection: COL.milk, exportName: 'expenses', searchKeys: ['description', 'category', 'notes'],
-  rowFilter: (r) => r.type === 'مصروف حظيرة' || r.type === 'مدفوعات' || r.partnerAmount != null,
+  rowFilter: (r) => !r.isAdvance && (r.type === 'مصروف حظيرة' || r.type === 'مدفوعات' || r.partnerAmount != null),
   columns: [{ key: 'date', label: 'التاريخ' }, { key: 'category', label: 'التصنيف' }, { key: 'description', label: 'البيان' }, { key: 'expAmount', label: 'المبلغ', num: true }, { key: 'expCurrency', label: 'العملة' },
     { key: 'paymentStatus', label: 'الحالة' }, { key: 'paymentDate', label: 'تاريخ الدفع الفعلي' }, { key: 'fundingSource', label: 'الممول' }, { key: 'method', label: 'طريقة الدفع' },
     { key: 'attachmentUrl', label: 'مستند', render: (r) => (r.attachmentUrl ? <a className="text-brand-600 underline" href={r.attachmentUrl} target="_blank" rel="noreferrer">عرض</a> : '') }],

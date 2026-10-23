@@ -22,7 +22,7 @@ export default function ImportWizard() {
     try { const id = await runImport({ parsed: st.parsed, fileName: st.f.name, fileHash: st.hash, onProgress: (a, b) => setProg([a, b]) }); setVer(await verifyImport(id, st.rec)); toast.show('اكتمل الاستيراد') }
     catch (e) { toast.show('توقف الاستيراد: ' + e.message + ' — أعد المحاولة لاستكماله', 'err') } finally { setBusy(false) } }
   const backup = async () => {
-    setBusy(true); try { for (const [k, c] of Object.entries({ milk: COL.milk, land: COL.land, cattle: COL.cattle, events: COL.cattleEvents, partnerExpenses: COL.partnerExpenses, ledger: COL.ledger })) {
+    setBusy(true); try { for (const [k, c] of Object.entries({ milk: COL.milk, land: COL.land, cattle: COL.cattle, events: COL.cattleEvents, partnerExpenses: COL.partnerExpenses, ledger: COL.ledger, advances: COL.advances, workers: COL.workers, payroll: COL.payroll })) {
       const rows = (await listRange(c, { max: 10000 })).map(({ createdAt, updatedAt, ...r }) => r); const keys = [...new Set(rows.flatMap((r) => Object.keys(r)))]
       await exportRows({ filename: `backup_${k}`, sheet: k, columns: keys.map((x) => ({ key: x, label: x })), rows } ) } } catch (e) { toast.show(e.message, 'err') } finally { setBusy(false) } }
   const [rest, setRest] = useState(null); const [restRes, setRestRes] = useState(null)
