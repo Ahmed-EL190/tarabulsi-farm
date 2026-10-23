@@ -22,18 +22,19 @@ export const ANIMAL_FIELDS = (lists) => [
 export default function Cattle() {
   const { rows, loading } = useCollection(COL.cattle); const lists = useLists(); const { role } = useAuth(); const toast = useToast()
   const [q, setQ] = useState(''); const [f, setF] = useState({}); const [open, setOpen] = useState(false)
-  const form = useForm({ defaultValues: { status: 'نشط', category: 'بقرة' } })
+  const form = useForm({ defaultValues: { status: 'نشط', category: 'بقرة', recordCash: true } })
+  const fv = form.watch()
   const shown = useMemo(() => rows.filter((r) => (!q || `${r.animalId} ${r.name}`.toLowerCase().includes(q.toLowerCase())) && Object.entries(f).every(([k, v]) => !v || r[k] === v)), [rows, q, f])
   const counts = useMemo(() => rows.reduce((a, r) => { a[r.status] = (a[r.status] || 0) + 1; return a }, {}), [rows])
   const save = form.handleSubmit(async (v) => {
-    try { await addAnimal({ ...v, purchasePrice: v.purchasePrice === '' ? null : Number(v.purchasePrice), baselineMilkL: v.baselineMilkL === '' ? null : Number(v.baselineMilkL), purchaseDate: v.purchaseDate || null, birthDate: v.birthDate || null })
-      toast.show('تمت الإضافة'); setOpen(false) } catch (e) { toast.show(e.message, 'err') } })
+    try { const { recordCash, ...rest } = v; await addAnimal(rest, { recordCash: !!recordCash })
+      toast.show(Number(v.purchasePrice) > 0 && recordCash ? 'تمت الإضافة وسُجّلت دفعة الشراء في الصندوق' : 'تمت الإضافة'); setOpen(false) } catch (e) { toast.show(e.message, 'err') } })
   const cols = [{ key: 'animalId', label: 'الرقم' }, { key: 'name', label: 'الاسم' }, { key: 'category', label: 'الفئة' }, { key: 'status', label: 'الحالة' }, { key: 'motherId', label: 'الأم' }, { key: 'purchaseDate', label: 'تاريخ الشراء' }, { key: 'purchasePrice', label: 'سعر الشراء' }, { key: 'currency', label: 'العملة' }, { key: 'baselineMilkL', label: 'لتر/يوم' }, { key: 'health', label: 'الصحة' }, { key: 'source', label: 'المصدر' }]
   return (
     <div>
       <PageHeader title="الأبقار والعجول">
         <button className="btn-ghost" onClick={() => exportRows({ filename: 'cattle', sheet: 'Cattle', columns: cols, rows: shown })}><Download size={16} />تصدير</button>
-        {can(role, 'write') && <button className="btn" onClick={() => { form.reset({ status: 'نشط', category: 'بقرة' }); setOpen(true) }}><Plus size={16} />إضافة حيوان</button>}
+        {can(role, 'write') && <button className="btn" onClick={() => { form.reset({ status: 'نشط', category: 'بقرة', recordCash: true }); setOpen(true) }}><Plus size={16} />إضافة حيوان</button>}
       </PageHeader>
       <div className="flex gap-3 flex-wrap mb-3 text-sm">{Object.entries(counts).map(([k, v]) => <span key={k} className="card py-2">{k}: <b>{v}</b></span>)}</div>
       <div className="card mb-4 grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -46,6 +47,7 @@ export default function Cattle() {
           <tr key={r.id} className="border-t hover:bg-slate-50">{cols.map((c) => <td key={c.key} className="p-3">{c.key === 'animalId' ? <Link className="text-brand-600 underline" to={`/cattle/${r.animalId}`}>{r.animalId}</Link> : c.key === 'purchasePrice' ? fmtNum(r[c.key]) : String(r[c.key] ?? '')}</td>)}</tr>))}</tbody></table></div>
       {open && <Modal wide title="إضافة حيوان" onClose={() => setOpen(false)}><form onSubmit={save} className="grid md:grid-cols-2 gap-3">
         {ANIMAL_FIELDS(lists).map((x) => <Field key={x.name} f={x} form={form} options={x.o} />)}
+        {Number(fv.purchasePrice) > 0 && <label className="md:col-span-2 text-sm flex gap-2 items-start rounded-lg bg-amber-50 p-3"><input type="checkbox" className="mt-1" {...form.register('recordCash')} /><span>تسجيل دفعة نقدية مرتبطة بالشراء في الصندوق (مدفوعات / «شراء حيوان»).<br /><span className="text-xs text-slate-500">أوقف الخيار إن كنت قد أدخلت هذه الدفعة يدوياً في الصندوق حتى لا تُحتسب مرتين.</span></span></label>}
         <div className="md:col-span-2 flex justify-end gap-2"><button type="button" className="btn-ghost" onClick={() => setOpen(false)}>إلغاء</button><button className="btn">حفظ</button></div></form></Modal>}
       {toast.node}
     </div>

@@ -11,6 +11,7 @@ import { ledgerBalances, repaymentExceedsLiability } from '../../utils/finance'
 import { exportRows } from '../../utils/exportExcel'
 import { Modal, Empty, PageHeader, fmtNum, useToast } from '../../components/ui'
 import { Field } from '../../components/FormFields'
+import { isValidDate } from '../../utils/money'
 
 export default function Ledger() {
   const { rows } = useCollection(COL.ledger); const lists = useLists(); const { role } = useAuth(); const toast = useToast()
@@ -23,7 +24,9 @@ export default function Ledger() {
 
   const save = form.handleSubmit(async (x) => {
     try {
-      const amt = Number(x.amount); if (!x.partner) throw new Error('اختر الشريك'); if (!(amt > 0)) throw new Error('المبلغ غير صالح')
+      const amt = Number(x.amount); if (!x.partner) throw new Error('اختر الشريك'); if (!Number.isFinite(amt) || !(amt > 0)) throw new Error('المبلغ غير صالح')
+      if (x.date && !isValidDate(x.date)) throw new Error('التاريخ غير صالح')
+      if (x.type === 'سداد' && x.fromCash && !x.date) throw new Error('التاريخ مطلوب عند السداد من الصندوق')
       if (x.type === 'تعديل معتمد' && !x.notes) throw new Error('التعديل يتطلب تفسيراً في الملاحظات')
       const rec = { date: x.date || null, partner: x.partner, type: x.type, description: x.description || '', additionSYP: null, repaymentSYP: null, notes: x.notes || '', archived: false, createdBy: auth.currentUser?.uid, createdAt: serverTimestamp(), updatedAt: serverTimestamp() }
       if (x.type === 'سداد') { if (repaymentExceedsLiability(balanceOf(x.partner), amt)) throw new Error('السداد يتجاوز الرصيد المستحق — استخدم «تعديل معتمد» مع تفسير'); rec.repaymentSYP = amt }

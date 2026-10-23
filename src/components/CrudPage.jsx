@@ -1,5 +1,4 @@
 import { useMemo, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { Plus, Download, Pencil, Eye, Archive, Printer, Search } from 'lucide-react'
 import { useCollection } from '../hooks/useCollection'
@@ -10,7 +9,7 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'
 import { storage } from '../firebase/config'
 import { exportRows } from '../utils/exportExcel'
 import { Field } from './FormFields'
-import { Modal, Confirm, Empty, Pagination, PageHeader, TruncWarn, fmtNum, useToast } from './ui'
+import { Modal, Confirm, Empty, Pagination, PageHeader, fmtNum, useToast } from './ui'
 
 const PAGE = 25
 /**
@@ -19,10 +18,9 @@ const PAGE = 25
  */
 export default function CrudPage({ cfg }) {
   const lists = useLists(); const { role } = useAuth(); const toast = useToast()
-  const [sp] = useSearchParams()
-  const [range, setRange] = useState({ from: sp.get('from') || '', to: sp.get('to') || '' })
-  const { rows, loading, error, truncated } = useCollection(cfg.collection, range)
-  const [q, setQ] = useState(''); const [flt, setFlt] = useState(() => Object.fromEntries((cfg.filters || []).map((f) => [f.key, sp.get(f.key) || '']))); const [page, setPage] = useState(1)
+  const [range, setRange] = useState({ from: '', to: '' })
+  const { rows, loading, error } = useCollection(cfg.collection, range)
+  const [q, setQ] = useState(''); const [flt, setFlt] = useState({}); const [page, setPage] = useState(1)
   const [sort, setSort] = useState({ key: 'date', dir: 'desc' }); const [edit, setEdit] = useState(null); const [view, setView] = useState(null); const [confirm, setConfirm] = useState(null)
   const writable = can(role, 'write')
 
@@ -38,7 +36,7 @@ export default function CrudPage({ cfg }) {
 
   const form = useForm({ defaultValues: cfg.defaults || {} })
   const values = form.watch()
-  const open = (row) => { form.reset(row ? Object.fromEntries(Object.entries(row).filter(([k]) => k !== 'attachment').map(([k, v]) => [k, v ?? ''])) : cfg.defaults || {}); setEdit(row || {}) }
+  const open = (row) => { form.reset(row ? Object.fromEntries(Object.entries(cfg.toForm ? cfg.toForm(row) : row).filter(([k]) => k !== 'attachment').map(([k, v]) => [k, v ?? ''])) : cfg.defaults || {}); setEdit(row || {}) }
   const save = form.handleSubmit(async (v) => {
     try {
       for (const f of cfg.fields) if (f.required && (!f.showIf || f.showIf(v)) && (v[f.name] === '' || v[f.name] == null)) throw new Error(`الحقل مطلوب: ${f.label}`)
@@ -48,12 +46,13 @@ export default function CrudPage({ cfg }) {
         delete v[f.name]
       }
       const doc = cfg.prepare ? cfg.prepare(v) : v
-      if (edit?.id) await update(cfg.collection, edit.id, doc, edit); else await create(cfg.collection, doc)
+      if (cfg.save) await cfg.save({ id: edit?.id || null, data: doc, before: edit?.id ? edit : null })
+      else if (edit?.id) await update(cfg.collection, edit.id, doc, edit); else await create(cfg.collection, doc)
       toast.show('تم الحفظ'); setEdit(null)
     } catch (e) { toast.show(e.message || 'فشل الحفظ', 'err') }
   })
-  const doArchive = async () => { try { await archive(cfg.collection, confirm.id, confirm); toast.show('تمت الأرشفة') } catch (e) { toast.show(e.message, 'err') } setConfirm(null) }
-  const optsFor = (f) => { const base = f.listKey ? lists[f.listKey].active : f.options; const cur = edit?.[f.name]; return cur && base && !base.includes(cur) ? [...base, cur] : base }
+  const doArchive = async () => { try { await (cfg.archive ? cfg.archive(confirm.id, confirm) : archive(cfg.collection, confirm.id, confirm)); toast.show('تمت الأرشفة') } catch (e) { toast.show(e.message, 'err') } setConfirm(null) }
+  const optsFor = (f) => (f.listKey ? lists[f.listKey].active : f.options)
 
   return (
     <div>
@@ -70,7 +69,6 @@ export default function CrudPage({ cfg }) {
           <div key={f.key}><label className="label">{f.label}</label><select className="input" value={flt[f.key] || ''} onChange={(e) => { setFlt({ ...flt, [f.key]: e.target.value }); setPage(1) }}><option value="">الكل</option>{(f.listKey ? lists[f.listKey].items : f.options).map((o) => <option key={o}>{o}</option>)}</select></div>
         ))}
       </div>
-      <TruncWarn show={truncated} />
       {error && <div className="card text-red-600 text-sm mb-3">تعذر التحميل: {String(error.message || error)}</div>}
       <div className="card p-0 overflow-x-auto">
         <table className="w-full text-sm">

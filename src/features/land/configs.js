@@ -1,5 +1,5 @@
 import { COL } from '../../services/db'
-import { numOrNull } from '../../utils/docs'
+import { parseNumber, isValidDate, requireCurrency } from '../../utils/money'
 export const landCfg = {
   title: 'الأرض والاستثمار (Transactions)', collection: COL.land, exportName: 'land_transactions', searchKeys: ['description', 'code', 'source', 'partner'],
   columns: [{ key: 'code', label: 'المعرّف' }, { key: 'date', label: 'التاريخ' }, { key: 'stage', label: 'المرحلة' }, { key: 'costType', label: 'نوع التكلفة' }, { key: 'category', label: 'التصنيف' }, { key: 'subcategory', label: 'الفرعي' },
@@ -15,5 +15,10 @@ export const landCfg = {
     { name: 'status', label: 'الحالة', type: 'select', listKey: 'statuses', required: true }, { name: 'detailLevel', label: 'مستوى السجل', type: 'select', listKey: 'detailLevels', required: true },
     { name: 'source', label: 'المصدر/المرجع', type: 'text' }, { name: 'attachment', label: 'مستند', type: 'file' }],
   defaults: { status: 'مؤكد', detailLevel: 'تفصيلي' },
-  prepare: (v) => { const a = numOrNull(v.amount); if (a === null) throw new Error('المبلغ مطلوب'); return { ...v, amount: a, date: v.date || null, code: v.code || `L-${Date.now().toString(36).toUpperCase()}` } },
+  // Land costs may include legitimate negative adjustments, so only finiteness and precision are enforced for the amount.
+  prepare: (v) => {
+    const a = parseNumber(v.amount, 'المبلغ', { required: true, maxDecimals: 2 }); requireCurrency(v.currency)
+    if (v.date && !isValidDate(v.date)) throw new Error('التاريخ غير صالح')
+    return { ...v, amount: a, date: v.date || null, code: v.code || `L-${Date.now().toString(36).toUpperCase()}` }
+  },
 }
