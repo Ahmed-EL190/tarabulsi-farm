@@ -37,6 +37,8 @@ export default function Dashboard() {
   const range = useMemo(() => ({ from, to }), [from, to])
   const prevRange = useMemo(() => { const len = differenceInCalendarDays(parseISO(to), parseISO(from)) + 1; const pt = subDays(parseISO(from), 1); return { from: iso(subDays(pt, len - 1)), to: iso(pt) } }, [from, to])
   const { rows: txAll, loading, error, truncated } = useCollection(COL.milk, range)
+  const todayRange = useMemo(() => ({ from: today, to: today }), [today])
+  const { rows: todayAll } = useCollection(COL.milk, todayRange)
   const { rows: prevAll } = useCollection(COL.milk, compare ? prevRange : { from: '2999-01-01', to: '2999-01-01' })
   const { rows: cattle } = useCollection(COL.cattle); const { rows: ledger } = useCollection(COL.ledger); const { rows: land } = useCollection(COL.land); const { rows: advRows } = useCollection(COL.advances); const { rows: payRows } = useCollection(COL.payroll)
   const [balance, setBalance] = useState(null); const [balErr, setBalErr] = useState('')
@@ -44,7 +46,7 @@ export default function Dashboard() {
 
   const pick = (rows) => (partner ? rows.filter((r) => r.fundingSource === partner) : rows)
   const tx = pick(txAll); const prev = compare ? pick(prevAll) : null
-  const todayRows = txAll.filter((r) => r.date === today)
+  const todayRows = todayAll
   const prodToday = milkProduction(todayRows); const cashToday = cashSummary(todayRows)
   const cash = cashSummary(tx); const pcash = prev ? cashSummary(prev) : null; const cats = expensesByCategory(tx)
   const prodPeriod = milkProduction(tx); const prodPrev = prev ? milkProduction(prev) : null

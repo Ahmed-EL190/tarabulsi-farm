@@ -9,10 +9,13 @@ const expCfg = {
   columns: [{ key: 'date', label: 'التاريخ' }, { key: 'partner', label: 'الشريك' }, { key: 'type', label: 'نوع الحركة/البيان' }, { key: 'amount', label: 'المبلغ', num: true }, { key: 'currency', label: 'العملة' },
     { key: 'reimbursement', label: 'حالة السداد' }, { key: 'milkRef', label: 'مرجع الصندوق' }, { key: 'notes', label: 'ملاحظات' }],
   filters: [{ key: 'partner', label: 'الشريك', listKey: 'partners' }, { key: 'currency', label: 'العملة', listKey: 'currencies' }, { key: 'reimbursement', label: 'السداد', options: ['غير مسدد', 'مسدد جزئياً', 'مسدد'] }],
-  fields: [{ name: 'date', label: 'التاريخ (إن عُرف)', type: 'date' }, { name: 'partner', label: 'الشريك', type: 'select', listKey: 'partners', required: true }, { name: 'type', label: 'البيان', type: 'text', required: true },
-    { name: 'amount', label: 'المبلغ', type: 'number', required: true }, { name: 'currency', label: 'العملة', type: 'select', listKey: 'currencies', required: true },
+  fields: [{ name: 'date', label: 'التاريخ (إن عُرف)', lockIf: (r) => !!r.milkRef, type: 'date' }, { name: 'partner', label: 'الشريك', lockIf: (r) => !!r.milkRef, type: 'select', listKey: 'partners', required: true }, { name: 'type', label: 'البيان', lockIf: (r) => !!r.milkRef, type: 'text', required: true },
+    { name: 'amount', label: 'المبلغ', lockIf: (r) => !!r.milkRef, type: 'number', required: true }, { name: 'currency', label: 'العملة', lockIf: (r) => !!r.milkRef, type: 'select', listKey: 'currencies', required: true },
     { name: 'reimbursement', label: 'حالة سداد الشريك', type: 'select', options: ['غير مسدد', 'مسدد جزئياً', 'مسدد'] }, { name: 'notes', label: 'ملاحظات', type: 'textarea' }],
-  prepare: (v) => ({ ...v, date: v.date || null, amount: numOrNull(v.amount), reimbursement: v.reimbursement || 'غير مسدد' }),
+  editNote: (r) => (r.milkRef ? 'هذا المصروف مرتبط بسجل في الصندوق، لذلك يمكن تعديل حالة السداد والملاحظات فقط. لتعديل المبلغ أو الشريك عدّل سجل الصندوق نفسه.' : ''),
+  prepare: (v, row) => (row?.milkRef
+    ? { partner: row.partner, type: row.type, amount: row.amount, currency: row.currency, date: row.date ?? null, reimbursement: v.reimbursement || 'غير مسدد', notes: v.notes || '' }
+    : { ...v, date: v.date || null, amount: numOrNull(v.amount), reimbursement: v.reimbursement || 'غير مسدد' }),
 }
 export default function Partners() {
   const [tab, setTab] = useState('ledger')

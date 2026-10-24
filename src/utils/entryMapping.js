@@ -1,6 +1,14 @@
 // Maps a Daily Entry form to the stored Milk_Box-style document. Pure and unit-tested.
-import { parseNumber, round, mulMoney, requireDate, requireCurrency } from './money.js'
-
+const num = (v) => (v === '' || v === null || v === undefined ? null : Number(v))
+const cashFields = (dir, amount, cur) => {
+  const a = num(amount); const o = { receiptsSYP: null, paymentsSYP: null, receiptsUSD: null, paymentsUSD: null }
+  if (a === null) return o
+  o[`${dir}${cur}`] = a; return o
+}
+const withNet = (d) => { // same rule as Milk_Box: net is blank when no cash amount exists in that currency
+  for (const c of ['SYP', 'USD']) { const r = d[`receipts${c}`], p = d[`payments${c}`]; d[`net${c}`] = r === null && p === null ? null : (r ?? 0) - (p ?? 0) }
+  return d
+}
 export const ENTRY_KINDS = {
   production: { label: 'إنتاج الحليب اليومي', type: 'حليب أولي', category: 'حليب' },
   sale: { label: 'بيع الحليب', type: 'مبيعات حليب', category: 'حليب' },
@@ -13,57 +21,44 @@ export const ENTRY_KINDS = {
   partnerExpense: { label: 'مصاريف دفعها شريك', type: 'مصروف حظيرة', category: 'أخرى' },
   other: { label: 'حركة أخرى', type: 'مصروف حظيرة', category: 'أخرى' },
 }
-/** Kinds that are expenses: they also carry the fields the Expenses page reads (expAmount/expCurrency/paymentStatus/payer). */
-const EXPENSE_KINDS = ['payment', 'feed', 'medicine', 'wages', 'utilities', 'partnerExpense', 'other']
-
-const netOf = (r, p) => (r === null && p === null ? null : round((r ?? 0) - (p ?? 0), 2))
-
 export function buildMilkDoc(kind, v) {
   const k = ENTRY_KINDS[kind]; if (!k) throw new Error('نوع إدخال غير معروف')
-  requireDate(v.date)
-  const doc = { date: v.date, type: k.type, category: v.category || k.category, description: (v.description || '').trim(), morningL: null, eveningL: null, liters: null, pricePerL: null,
-    method: v.method || null, notes: v.notes || '', fundingSource: v.fundingSource || null, partnerAmount: null, partnerCurrency: null,
-    receiptsSYP: null, paymentsSYP: null, receiptsUSD: null, paymentsUSD: null, netSYP: null, netUSD: null, entryKind: kind }
-  const setCash = (dir, amount, cur) => { doc[`${dir}${cur}`] = amount; doc[`net${cur}`] = netOf(dir === 'receipts' ? amount : null, dir === 'payments' ? amount : null) }
-
+  if (kind === 'wages' && v.workerName && !v.description) v = { ...v, description: `أجر ${v.workerName}` }
+  const doc = { date: v.date, type: k.type, category: v.category || k.category, description: v.description || '', morningL: null, eveningL: null, liters: null, pricePerL: null,
+    customer: v.customer || null, workerName: v.workerName || null, settlesCustomer: v.settlesCustomer || null, method: v.method || null, notes: v.notes || '', fundingSource: v.fundingSource || null, partnerAmount: null, partnerCurrency: null,
+    receiptsSYP: null, paymentsSYP: null, receiptsUSD: null, paymentsUSD: null, entryKind: kind }
   if (kind === 'production') {
-    doc.morningL = parseNumber(v.morningL, 'كمية الصباح', { min: 0, maxDecimals: 3 })
-    doc.eveningL = parseNumber(v.eveningL, 'كمية المساء', { min: 0, maxDecimals: 3 })
+    doc.morningL = num(v.morningL); doc.eveningL = num(v.eveningL)
     if (doc.morningL === null && doc.eveningL === null) throw new Error('أدخل كمية الصباح أو المساء')
-    doc.liters = round((doc.morningL ?? 0) + (doc.eveningL ?? 0), 3) // production is NOT revenue: no receipts
-    return doc
+    if ((doc.morningL ?? 0) < 0 || (doc.eveningL ?? 0) < 0) throw new Error('الكمية لا يمكن أن تكون سالبة')
+    doc.liters = (doc.morningL ?? 0) + (doc.eveningL ?? 0) // production is NOT revenue: no receipts
+    return withNet(doc)
   }
   if (kind === 'sale') {
-    const cur = requireCurrency(v.currency || 'SYP')
-    const liters = parseNumber(v.liters, 'الكمية المباعة', { required: true, positive: true, maxDecimals: 3 })
-    const price = parseNumber(v.pricePerL, 'سعر اللتر', { required: true, positive: true, maxDecimals: 3 })
-    const discount = parseNumber(v.discount, 'الخصم', { min: 0, maxDecimals: 2 }) ?? 0
-    const total = mulMoney(liters, price)
-    if (discount > total) throw new Error('الخصم أكبر من قيمة البيع')
-    const net = round(total - discount, 2)
-    const collected = parseNumber(v.collected, 'المبلغ المحصَّل', { min: 0, maxDecimals: 2 }) ?? net // empty = full collection
-    if (collected > net) throw new Error('المبلغ المحصَّل أكبر من صافي البيع')
-    doc.liters = liters; doc.pricePerL = price; doc.discount = discount
-    setCash('receipts', collected, cur)
-    doc.saleNet = net; doc.outstanding = round(net - collected, 2); doc.saleCurrency = cur // credit sale: outstanding > 0
-    return doc
+    doc.liters = num(v.liters); doc.pricePerL = num(v.pricePerL)
+    if (doc.liters === null || !(doc.liters > 0)) throw new Error('كمية المبيع مطلوبة')
+    if (doc.pricePerL === null || !(doc.pricePerL > 0)) throw new Error('سعر اللتر مطلوب')
+    if (!['SYP', 'USD'].includes(v.currency)) throw new Error('اختر العملة')
+    const discount = num(v.discount) ?? 0; if (discount < 0) throw new Error('الخصم لا يمكن أن يكون سالباً')
+    const gross = doc.liters * doc.pricePerL - discount; if (gross < 0) throw new Error('الخصم أكبر من قيمة البيع')
+    const collected = v.collected === '' || v.collected === undefined || v.collected === null ? gross : num(v.collected) // credit sale: collected < gross
+    if (collected < 0) throw new Error('المحصَّل لا يمكن أن يكون سالباً')
+    if (collected > gross + 1e-9) throw new Error('المحصَّل أكبر من صافي البيع — سجّل الزيادة كمقبوضات منفصلة')
+    // nothing collected => no receipt row amount (blank, not zero)
+    Object.assign(doc, cashFields('receipts', collected > 0 ? collected : null, v.currency))
+    doc.saleNet = gross; doc.outstanding = Math.max(0, gross - collected); doc.saleCurrency = v.currency; doc.discount = discount || null
+    return withNet(doc)
   }
-  const cur = requireCurrency(v.currency)
-  const amount = parseNumber(v.amount, 'المبلغ', { required: true, positive: true, maxDecimals: 2 })
+  if (!['SYP', 'USD'].includes(v.currency)) throw new Error('اختر العملة')
+  if (num(v.amount) === null || !(num(v.amount) > 0)) throw new Error('المبلغ مطلوب ويجب أن يكون أكبر من صفر')
   if (kind === 'partnerExpense') {
     if (!v.fundingSource) throw new Error('اختر الشريك')
-    doc.partnerAmount = amount; doc.partnerCurrency = cur // no cash movement
-  } else setCash(kind === 'receipt' ? 'receipts' : 'payments', amount, cur)
-  if (EXPENSE_KINDS.includes(kind)) Object.assign(doc, { expAmount: amount, expCurrency: cur, paymentStatus: 'مدفوع', payer: kind === 'partnerExpense' ? 'شريك' : 'صندوق المزرعة', payableAmount: null })
-  return doc
+    doc.partnerAmount = num(v.amount); doc.partnerCurrency = v.currency // no cash movement
+    return withNet(doc)
+  }
+  Object.assign(doc, cashFields(kind === 'receipt' ? 'receipts' : 'payments', v.amount, v.currency))
+  doc.paymentStatus = kind === 'receipt' ? null : 'مدفوع'
+  return withNet(doc)
 }
-
-const norm = (x) => (x === undefined || x === null || x === '' ? null : typeof x === 'string' ? x.trim() : x)
-/**
- * Duplicate-detection key. Covers every field that makes two transactions different
- * (date, type, quantity, unit price, discount, amounts per currency, party, method).
- * Computed from document fields, so it also works for imported/old documents.
- * JSON-encoded (no separator collisions).
- */
-export const entryFingerprint = (d) => JSON.stringify([d.date, d.type, d.category, d.description, d.morningL, d.eveningL, d.liters, d.pricePerL, d.discount,
-  d.receiptsSYP, d.paymentsSYP, d.receiptsUSD, d.paymentsUSD, d.partnerAmount, d.partnerCurrency, d.fundingSource, d.method].map(norm))
+/** Stable fingerprint to block accidental double submits. */
+export const entryFingerprint = (d) => [d.date, d.type, d.category, d.description, d.morningL, d.eveningL, d.liters, d.receiptsSYP, d.paymentsSYP, d.receiptsUSD, d.paymentsUSD, d.partnerAmount, d.partnerCurrency, d.customer, d.workerName, d.settlesCustomer].join('|')

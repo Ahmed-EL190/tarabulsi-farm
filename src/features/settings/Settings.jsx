@@ -23,7 +23,7 @@ function Lists({ admin, toast }) {
         {admin && <div className="flex gap-2 mb-3"><input className="input" value={v} onChange={(e) => setV(e.target.value)} placeholder="قيمة جديدة" /><button className="btn" onClick={add}><Plus size={16} />إضافة</button></div>}
         <ul>{cur.items.map((it, i) => <li key={it} className="flex items-center gap-2 py-1.5 border-b text-sm"><span className={`flex-1 ${cur.disabled.includes(it) ? 'line-through text-slate-400' : ''}`}>{it}</span>
           {admin && <><button onClick={() => move(i, -1)}><ArrowUp size={14} /></button><button onClick={() => move(i, 1)}><ArrowDown size={14} /></button><button className="text-xs underline" onClick={() => rename(i)}>تعديل</button><button className="text-xs underline" onClick={() => toggle(it)}>{cur.disabled.includes(it) ? 'تفعيل' : 'تعطيل'}</button></>}</li>)}</ul>
-        <p className="text-xs text-slate-500 mt-3">التعطيل يخفي القيمة من القوائم الجديدة فقط؛ السجلات القديمة تحتفظ بقيمتها.</p></div></div>)
+        <p className="text-xs text-slate-500 mt-3">التعطيل يخفي القيمة من القوائم الجديدة فقط؛ السجلات القديمة تحتفظ بقيمتها. «تعديل» الاسم يغيّره في القوائم فقط ولا يغيّر السجلات القديمة، فالأفضل تعطيل القيمة القديمة وإضافة الجديدة.</p></div></div>)
 }
 
 function Opening({ admin, toast }) {

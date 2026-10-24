@@ -1,15 +1,16 @@
 import { useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { Plus, Download, Pencil, Eye, Archive, Printer, Search } from 'lucide-react'
 import { useCollection } from '../hooks/useCollection'
 import { useLists } from '../hooks/useLists'
 import { useAuth, can } from '../app/AuthContext'
-import { create, update, archive } from '../services/db'
+import { COL, create, update, archive, archiveMilkRow, syncPartnerExpenses } from '../services/db'
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'
 import { storage } from '../firebase/config'
 import { exportRows } from '../utils/exportExcel'
 import { Field } from './FormFields'
-import { Modal, Confirm, Empty, Pagination, PageHeader, fmtNum, useToast } from './ui'
+import { Modal, Confirm, Empty, Pagination, PageHeader, TruncWarn, fmtNum, useToast } from './ui'
 
 const PAGE = 25
 /**
@@ -18,13 +19,14 @@ const PAGE = 25
  */
 export default function CrudPage({ cfg }) {
   const lists = useLists(); const { role } = useAuth(); const toast = useToast()
-  const [range, setRange] = useState({ from: '', to: '' })
-  const { rows, loading, error } = useCollection(cfg.collection, range)
-  const [q, setQ] = useState(''); const [flt, setFlt] = useState({}); const [page, setPage] = useState(1)
+  const [sp] = useSearchParams()
+  const [range, setRange] = useState({ from: sp.get('from') || '', to: sp.get('to') || '' })
+  const { rows, loading, error, truncated } = useCollection(cfg.collection, range)
+  const [q, setQ] = useState(''); const [flt, setFlt] = useState(() => Object.fromEntries((cfg.filters || []).map((f) => [f.key, sp.get(f.key) || '']))); const [page, setPage] = useState(1)
   const [sort, setSort] = useState({ key: 'date', dir: 'desc' }); const [edit, setEdit] = useState(null); const [view, setView] = useState(null); const [confirm, setConfirm] = useState(null)
   const writable = can(role, 'write')
 
-  const base = useMemo(() => rows.filter((r) => (cfg.rowFilter ? cfg.rowFilter(r) : true)), [rows])
+  const base = useMemo(() => rows.filter((r) => (cfg.rowFilter ? cfg.rowFilter(r) : true)).map((r) => (cfg.normalize ? cfg.normalize(r) : r)), [rows])
   const filtered = useMemo(() => {
     const t = q.trim().toLowerCase()
     let out = base.filter((r) => (!t || (cfg.searchKeys || ['description']).some((k) => String(r[k] ?? '').toLowerCase().includes(t))) &&
@@ -32,11 +34,13 @@ export default function CrudPage({ cfg }) {
     out = [...out].sort((a, b) => { const x = a[sort.key] ?? '', y = b[sort.key] ?? ''; return (x > y ? 1 : x < y ? -1 : 0) * (sort.dir === 'asc' ? 1 : -1) })
     return out
   }, [base, q, flt, sort])
-  const pages = Math.max(1, Math.ceil(filtered.length / PAGE)); const pageRows = filtered.slice((page - 1) * PAGE, page * PAGE)
+  const pages = Math.max(1, Math.ceil(filtered.length / PAGE)); const curPage = Math.min(page, pages); const pageRows = filtered.slice((curPage - 1) * PAGE, curPage * PAGE)
 
   const form = useForm({ defaultValues: cfg.defaults || {} })
   const values = form.watch()
-  const open = (row) => { form.reset(row ? Object.fromEntries(Object.entries(cfg.toForm ? cfg.toForm(row) : row).filter(([k]) => k !== 'attachment').map(([k, v]) => [k, v ?? ''])) : cfg.defaults || {}); setEdit(row || {}) }
+  const META = ['id', 'createdAt', 'updatedAt', 'createdBy', 'updatedBy', 'archived', 'attachment', 'fp']
+  const open = (row) => { const src = row && cfg.toForm ? cfg.toForm(row) : row; form.reset(src ? Object.fromEntries(Object.entries(src).filter(([k]) => !META.includes(k)).map(([k, v]) => [k, v ?? ''])) : cfg.defaults || {}); setEdit(row || {}) }
+  const locked = (r) => !!cfg.locked?.(r)
   const save = form.handleSubmit(async (v) => {
     try {
       for (const f of cfg.fields) if (f.required && (!f.showIf || f.showIf(v)) && (v[f.name] === '' || v[f.name] == null)) throw new Error(`الحقل مطلوب: ${f.label}`)
@@ -45,14 +49,14 @@ export default function CrudPage({ cfg }) {
         if (file) { const r = ref(storage, `attachments/${cfg.collection}/${Date.now()}_${file.name}`); await uploadBytes(r, file); v.attachmentUrl = await getDownloadURL(r) }
         delete v[f.name]
       }
-      const doc = cfg.prepare ? cfg.prepare(v) : v
-      if (cfg.save) await cfg.save({ id: edit?.id || null, data: doc, before: edit?.id ? edit : null })
-      else if (edit?.id) await update(cfg.collection, edit.id, doc, edit); else await create(cfg.collection, doc)
+      const doc = cfg.prepare ? cfg.prepare(v, edit?.id ? edit : null) : v
+      if (edit?.id) { await update(cfg.collection, edit.id, doc, edit); if (cfg.collection === COL.milk && (doc.partnerAmount != null || edit.partnerAmount != null)) await syncPartnerExpenses(edit.id, { ...edit, ...doc }) }
+      else { const id = await create(cfg.collection, doc); if (cfg.collection === COL.milk && doc.partnerAmount != null) await syncPartnerExpenses(id, doc) }
       toast.show('تم الحفظ'); setEdit(null)
     } catch (e) { toast.show(e.message || 'فشل الحفظ', 'err') }
   })
-  const doArchive = async () => { try { await (cfg.archive ? cfg.archive(confirm.id, confirm) : archive(cfg.collection, confirm.id, confirm)); toast.show('تمت الأرشفة') } catch (e) { toast.show(e.message, 'err') } setConfirm(null) }
-  const optsFor = (f) => (f.listKey ? lists[f.listKey].active : f.options)
+  const doArchive = async () => { try { if (cfg.collection === COL.milk) await archiveMilkRow(confirm); else await archive(cfg.collection, confirm.id, confirm); toast.show('تمت الأرشفة') } catch (e) { toast.show(e.message, 'err') } setConfirm(null) }
+  const optsFor = (f) => { const base = f.listKey ? lists[f.listKey].active : f.options; const cur = edit?.[f.name]; return cur && base && !base.includes(cur) ? [...base, cur] : base }
 
   return (
     <div>
@@ -69,6 +73,7 @@ export default function CrudPage({ cfg }) {
           <div key={f.key}><label className="label">{f.label}</label><select className="input" value={flt[f.key] || ''} onChange={(e) => { setFlt({ ...flt, [f.key]: e.target.value }); setPage(1) }}><option value="">الكل</option>{(f.listKey ? lists[f.listKey].items : f.options).map((o) => <option key={o}>{o}</option>)}</select></div>
         ))}
       </div>
+      <TruncWarn show={truncated} />
       {error && <div className="card text-red-600 text-sm mb-3">تعذر التحميل: {String(error.message || error)}</div>}
       <div className="card p-0 overflow-x-auto">
         <table className="w-full text-sm">
@@ -82,20 +87,22 @@ export default function CrudPage({ cfg }) {
                   {cfg.columns.map((c) => <td key={c.key} className={`p-3 ${c.num ? 'tabular-nums' : ''}`}>{c.render ? c.render(r) : c.num ? fmtNum(r[c.key]) : String(r[c.key] ?? '')}</td>)}
                   <td className="p-3 whitespace-nowrap flex gap-2">
                     <button title="عرض" onClick={() => setView(r)}><Eye size={16} /></button>
-                    {writable && <button title="تعديل" onClick={() => open(r)}><Pencil size={16} /></button>}
-                    {writable && <button title="أرشفة" onClick={() => setConfirm(r)}><Archive size={16} className="text-red-500" /></button>}
+                    {writable && !locked(r) && <button title="تعديل" onClick={() => open(r)}><Pencil size={16} /></button>}
+                    {writable && !locked(r) && <button title="أرشفة" onClick={() => setConfirm(r)}><Archive size={16} className="text-red-500" /></button>}
+                    {locked(r) && <span className="text-[11px] text-slate-400" title="سجل مرتبط بحركة أخرى (سلفة/مرتب/حيوان/مستحقات). عدّله من صفحته الأصلية">🔒 مرتبط</span>}
                   </td>
                 </tr>))}
           </tbody>
         </table>
-        <Pagination page={page} pages={pages} setPage={setPage} />
+        <Pagination page={curPage} pages={pages} setPage={setPage} />
       </div>
       <p className="text-xs text-slate-500 mt-2">{filtered.length} سجل</p>
 
       {edit && (
         <Modal title={edit.id ? 'تعديل' : 'إضافة'} wide onClose={() => setEdit(null)}>
           <form onSubmit={save} className="grid md:grid-cols-2 gap-3">
-            {cfg.fields.filter((f) => !f.showIf || f.showIf(values)).map((f) => <Field key={f.name} f={f} form={form} options={optsFor(f)} />)}
+            {cfg.editNote && edit?.id && cfg.editNote(edit) && <p className="md:col-span-2 text-xs rounded-lg bg-amber-50 text-amber-800 p-2">{cfg.editNote(edit)}</p>}
+            {cfg.fields.filter((f) => !f.showIf || f.showIf(values)).map((f) => <Field key={f.name} f={f} form={form} options={optsFor(f)} disabled={!!(edit?.id && f.lockIf?.(edit))} />)}
             <div className="md:col-span-2 flex justify-end gap-2 pt-2"><button type="button" className="btn-ghost" onClick={() => setEdit(null)}>إلغاء</button><button className="btn" disabled={form.formState.isSubmitting}>{form.formState.isSubmitting ? 'جارٍ الحفظ…' : 'حفظ'}</button></div>
           </form>
         </Modal>)}
